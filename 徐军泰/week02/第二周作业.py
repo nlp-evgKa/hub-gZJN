@@ -9,12 +9,12 @@ import random
 import matplotlib.pyplot as plt
 
 """
-修改后任务：
+任务描述：
 x是5维向量，哪个位置数字最大，就属于第几类（1-5类）
 使用：Softmax + 交叉熵损失
 """
 
-# ---------------------- 初始模型，只有一层线性层，准确率只有10%多一些---------------------
+# ---------------------- 初始模型，只有一层线性层，经测试准确率只有10%多一些---------------------
 
 # class TorchModel(nn.Module):
 #     def __init__(self, input_size, num_classes=5):   # input_size: 输入特征的维度；num_classes: 输出的类别数
