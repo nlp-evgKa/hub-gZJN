@@ -17,20 +17,18 @@ y = np.argmax(X, axis=1)
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
-# 将numpy数据转换成torch.tensor
 X_train = torch.tensor(X_train, dtype=torch.float32)
 y_train = torch.tensor(y_train, dtype=torch.long)
 X_test = torch.tensor(X_test, dtype=torch.float32)
 y_test = torch.tensor(y_test, dtype=torch.long)
 
-# 损失函数(用于分类的交叉熵损失函数)
+# 损失函数
 loss_fn = nn.CrossEntropyLoss()
 
 # 构建模型
 class TorchModel(nn.Module):
     def __init__(self, input_size:int, hidden_size:int, output_size: int):
         super().__init__()
-        # 定义的两个全连接的线性层
         self.layer1 = nn.Linear(input_size, hidden_size)
         self.layer2 = nn.Linear(hidden_size, output_size)
 
@@ -39,13 +37,13 @@ class TorchModel(nn.Module):
         y = self.layer2(x)
         return y
 
-def plot(model:nn.Module, X_test:torch.tensor, y_test:torch.tensor):
+def plot_confusion_matrix(model:nn.Module, X_test:torch.tensor, y_test:torch.tensor, save_path:str='confusion_matrix.png'):
     """ 绘制混淆矩阵 """
     model.eval()
     with torch.no_grad():
         y_pred_logits = model(X_test)
         y_pred = torch.argmax(y_pred_logits, dim=1)
-    
+
     y_true_np = y_test.numpy()
     y_pred_np = y_pred.numpy()
 
@@ -61,20 +59,55 @@ def plot(model:nn.Module, X_test:torch.tensor, y_test:torch.tensor):
     plt.xticks([0, 1, 2, 3])
     plt.yticks([0, 1, 2, 3])
 
-    plt.show()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"混淆矩阵已保存到: {save_path}")
+    plt.close()
+
+def plot_training_history(history:dict, save_path:str='training_history.png'):
+    """ 绘制训练过程中loss和accuracy的变化 """
+    epochs_range = range(len(history['train_loss']))
+
+    plt.figure(figsize=(12, 5))
+
+    # 绘制loss曲线
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs_range, history['train_loss'], label='Train Loss', color='blue')
+    plt.plot(epochs_range, history['test_loss'], label='Test Loss', color='red')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training and Test Loss')
+    plt.legend()
+    plt.grid(True)
+
+    # 绘制accuracy曲线
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs_range, history['test_accuracy'], label='Test Accuracy', color='green')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.title('Test Accuracy')
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"训练历史图已保存到: {save_path}")
+    plt.close()
 def train(X_train:torch.tensor, y_train:torch.tensor, input_size:int, hidden_size:int, output_size:int, epochs: int,
           X_test:torch.tensor, y_test:torch.tensor, batch_size:int=32):
-    """ 主训练函数,内部也有模型测试集的验证环节 """
     # 创建数据加载器
     train_dataset = TensorDataset(X_train, y_train)
-    # 利用CPU的并行计算能力,将数据分批次处理
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     model = TorchModel(input_size, hidden_size, output_size)
     model.train()
-    
-    # 优化器使用SGD 随机梯度下降,(当然也有其他的梯度下降方法,我这里就选了最常见的)
     optimizer = torch.optim.SGD(model.parameters(), lr = 0.1)
+
+    # 记录训练历史
+    history = {
+        'train_loss': [],
+        'test_loss': [],
+        'test_accuracy': []
+    }
 
     for epoch in range(epochs):
         epoch_train_loss = 0.0
@@ -100,13 +133,20 @@ def train(X_train:torch.tensor, y_train:torch.tensor, input_size:int, hidden_siz
             model.eval()
             test_pred = model(X_test)
             test_loss = loss_fn(test_pred, y_test)
+            # 计算准确率
+            test_pred_labels = torch.argmax(test_pred, dim=1)
+            test_accuracy = (test_pred_labels == y_test).sum().item() / len(y_test)
             model.train()
 
+        # 记录历史数据
+        history['train_loss'].append(avg_train_loss)
+        history['test_loss'].append(test_loss.item())
+        history['test_accuracy'].append(test_accuracy)
+
         if epoch%10 == 0:
-            # 打印处平均训练损失和测试损失
-            print(f"Epoch:{epoch} | train_loss:{avg_train_loss:.5f} | test_loss:{test_loss:.5f}")
-    
-    return model
+            print(f"Epoch:{epoch} | train_loss:{avg_train_loss:.5f} | test_loss:{test_loss:.5f} | test_acc:{test_accuracy:.4f}")
+
+    return model, history
 
 def load_and_predict():
     """ 加载并预测 """
@@ -117,12 +157,16 @@ def load_and_predict():
     return model
 
 def main(argc: int, argv: list[str]) -> int:
+    print(f"参数个数: {argc}")
+    print(f"参数列表: {argv}")
+
     if argc > 1 and argv[1] == "train":
         print("开始训练...")
-        model = train(X_train=X_train, y_train=y_train, input_size=4, hidden_size=10,
+        model, history = train(X_train=X_train, y_train=y_train, input_size=4, hidden_size=10,
                      output_size=4, epochs=100, X_test=X_test, y_test=y_test)
         torch.save(model.state_dict(), 'model.pth')
         print("模型已保存到 model.pth")
+        plot_training_history(history)
         return 0
 
     elif argc > 1 and argv[1] == "predict":
@@ -136,7 +180,7 @@ def main(argc: int, argv: list[str]) -> int:
         return 0
 
     else:
-        model = train(X_train=X_train, y_train=y_train, input_size=4, hidden_size=10,
+        model, history = train(X_train=X_train, y_train=y_train, input_size=4, hidden_size=10,
                      output_size=4, epochs=100, X_test=X_test, y_test=y_test)
         torch.save(model.state_dict(), 'model.pth')
         print("模型已保存")
@@ -147,7 +191,8 @@ def main(argc: int, argv: list[str]) -> int:
             predicted_class = torch.argmax(prediction, dim=1)
             print(f"预测类别: {predicted_class.item()}")
 
-        plot(model=model, X_test=X_test, y_test=y_test)
+        plot_training_history(history)
+        plot_confusion_matrix(model=model, X_test=X_test, y_test=y_test)
         return 0
 
 if __name__ == "__main__":
