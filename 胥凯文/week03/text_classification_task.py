@@ -41,7 +41,6 @@ def build_dataset(total_sample_num):
         Y.append(y)
     return torch.LongTensor(X), torch.LongTensor(Y) 
 
-# ─── 4. 模型定义 ────────────────────────────────────────────
 class text_classification_task(nn.Module):
     def __init__(self, vocab_size, embed_dim=64, hidden_dim=64, dropout=0.3):
         global g_model_type
@@ -67,8 +66,6 @@ class text_classification_task(nn.Module):
             return self.loss(y_pred, y)
         return y_pred
 
-
-# ─── 5. 训练与评估 ──────────────────────────────────────────
 def evaluate(model): 
     model.eval()
     test_sample_num = 100 
