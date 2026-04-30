@@ -7,7 +7,9 @@
 import random
 import torch
 import torch.nn as nn
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
+import matplotlib.pyplot as plt
 
 # ─── 超参数 ────────────────────────────────────────────────
 SEED        = 42
@@ -131,7 +133,6 @@ def evaluate(model, loader):
     with torch.no_grad():
         for X, y in loader:
             y_pred = model(X)  # 模型预测 model.forward(x)
-            # y_pred = torch.softmax(y_pred, dim=1)
             for y_p, y_t in zip(y_pred, y):  # 与真实标签进行对比
                 y_p_maxindx = torch.argmax(y_p)
                 if y_p_maxindx == int(y_t):
@@ -161,7 +162,7 @@ def train():
 
     total_params = sum(p.numel() for p in model.parameters())
     print(f"  模型参数量：{total_params:,}\n")
-
+    log = []
     for epoch in range(1, EPOCHS + 1):
         model.train()
         total_loss = 0.0
@@ -176,8 +177,15 @@ def train():
         avg_loss = total_loss / len(train_loader)
         val_acc  = evaluate(model, val_loader)
         print(f"Epoch {epoch:2d}/{EPOCHS}  loss={avg_loss:.4f}  val_acc={val_acc:.4f}")
+        log.append([val_acc, avg_loss])
 
     print(f"\n最终验证准确率：{evaluate(model, val_loader):.4f}")
+    # 画图
+    print(log)
+    plt.plot(range(len(log)), [l[0] for l in log], label="acc")  # 画acc曲线
+    plt.plot(range(len(log)), [l[1] for l in log], label="loss")  # 画loss曲线
+    plt.legend()
+    plt.show()
 
     print("\n--- 推理示例 ---")
     model.eval()#测试模式
